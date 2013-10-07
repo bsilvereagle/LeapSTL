@@ -10,6 +10,8 @@ Try It
 
 Clone this repo and open up index.html in a WebGL enabled browser. To use the Leap Motion control a Leap must be plugged in to the computer. Firefox WebGL info - about:support, Chrome WebGL info chrome://gpu
 
+Watch a [demo](https://vimeo.com/76304007)
+
 Thanks
 ---------
 * [three.js](https://github.com/mrdoob/three.js/) for the ability to render the 3D models in WebGL/Canvas via Javascript
