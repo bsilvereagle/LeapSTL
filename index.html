@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>Leap STL</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="stylesheet" type="text/css" href="css/styles.css">
+    </head>
+    <body>
+    	<!-- Load libraries -->
+        <script src="js/three.min.js"></script>
+        <script src="js/stats.js"></script>
+        <script src="js/leap.min.js"></script>
+        <script src="js/jquery.min.js"></script>
+		<!-- Load helper functions -->
+        <script src="js/parseSTL.js"></script>
+        <script src="js/fileSaver.js"></script>
+        <script src="js/LeapCameraControls.js"></script>
+        <script src="js/LeapObjectControls.js"></script>
+        <script src="js/selectObject.js"></script>
+        <script src="js/OrbitControls.js"></script>
+        
+        <!-- Create file picker -->
+        <input type="file" id="files" name="files[]" accept=".stl" style="margin-top:50px;" />
+		<output id="list"></output>
+		
+		<!-- Div for Leap pointer cursor -->
+		<div id="cursor"></div>
+		
+		<!-- Div for Instructions -->
+		<div id="instructions">
+			<strong>Select</strong> - One finger, object turns blue 
+			<strong>Rotate</strong> - Two Finger
+			<strong>Zoom</strong> - Three/Four Fingers
+			<strong>Translate</strong> - 6-10 Fingers
+		</div>
+		
+		<script>
+			/* File Picker Handler */
+			function handleFileSelect(evt) {
+				var file = evt.target.files[0]; // FileList object
+				
+				console.log('File opened: '+file.name);
+				
+				//Determine STL type and parse to three.js object
+				parseSTL(file);    
+			}		
+			document.getElementById('files').addEventListener('change', handleFileSelect, false);
+	
+			/* Three.js */
+            var camera, scene, renderer,
+            geometry, material, mesh, light1, stats, projector;     
+            var index=-1, lastControlsIndex=-1,controlsIndex = -1;               
+
+            init();  
+            animate();             
+            
+            function init() {
+
+                scene = new THREE.Scene();
+
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+                camera.position.x = 50;
+		        camera.position.y = 50;
+		        camera.position.z = 50;
+		        var origin = new THREE.Vector3(0, 0, 0);
+		        camera.lookAt(origin);
+		        
+				//Allow the mouse to be used
+				controls = new THREE.OrbitControls(camera);
+				controls.addEventListener('change',render);
+				//Allow the Leap to be used
+                cameraControls = new THREE.LeapCameraControls(camera);
+                
+                cameraControls.rotateEnabled  = true;
+		        cameraControls.rotateSpeed    = 3;
+		        cameraControls.rotateHands    = 1;
+		        cameraControls.rotateFingers  = [2, 3];
+		        
+		        cameraControls.zoomEnabled    = true;
+		        cameraControls.zoomSpeed      = 6;
+		        cameraControls.zoomHands      = 1;
+		        cameraControls.zoomFingers    = [4, 5];
+		        cameraControls.zoomMin        = 50;
+		        cameraControls.zoomMax        = 2000;
+		        
+		        cameraControls.panEnabled     = true;
+		        cameraControls.panSpeed       = 2;
+		        cameraControls.panHands       = 2;
+		        cameraControls.panFingers     = [6, 12];
+		        cameraControls.panRightHanded = false; // for left-handed person
+                
+                scene.add( camera );
+                
+                // projector
+       			projector = new THREE.Projector();   
+
+				// camera target coordinate system
+		        coords1 = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), origin, 75, 0xcccccc);
+		        coords2 = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), origin, 75, 0xcccccc);
+		        coords3 = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), origin, 75, 0xcccccc);
+		        scene.add(coords1);
+		        scene.add(coords2);
+		        scene.add(coords3);
+		
+		        // world coordinate system (thin dashed helping lines)
+		        var lineGeometry = new THREE.Geometry();
+		        var vertArray = lineGeometry.vertices;
+		        vertArray.push(new THREE.Vector3(1000, 0, 0), origin, new THREE.Vector3(0, 1000, 0), origin, new THREE.Vector3(0, 0, 1000));
+		        lineGeometry.computeLineDistances();
+		        var lineMaterial = new THREE.LineDashedMaterial({color: 0xcccccc, dashSize: 1, gapSize: 2});
+		        var coords = new THREE.Line(lineGeometry, lineMaterial);
+		        scene.add(coords);
+
+                var directionalLight = new THREE.DirectionalLight( 0xffffff );
+                directionalLight.position.x = 0; 
+                directionalLight.position.y = 0; 
+                directionalLight.position.z = 1; 
+                directionalLight.position.normalize();
+                scene.add( directionalLight );                
+
+                renderer = new THREE.WebGLRenderer(); //new THREE.CanvasRenderer();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+	
+				Leap.loop(function(frame){
+					//Display cursor on the canvas
+					showCursor(frame);
+					
+					// set correct camera control
+			        controlsIndex = focusObject(frame);
+			        if (index == -1) {
+			          cameraControls.update(frame);
+			        } else {
+			          objectControls[index].update(frame);
+			        };
+			        
+			        //Make sure the scene is always lit
+			        directionalLight.position = camera.position;
+			        
+			        render();
+
+	            });
+
+				setInterval(changeControlsIndex, 250);
+
+                document.body.appendChild( renderer.domElement );
+
+                stats = new Stats();
+                stats.domElement.style.position = 'absolute';
+                stats.domElement.style.top = '0px';
+                document.body.appendChild(stats.domElement);
+            }
+            function animate(){
+            	//Update things if using the mouse for controls
+            	requestAnimationFrame(animate);
+            	controls.update();
+            }
+            
+            function render(){
+				renderer.render(scene,camera);
+				stats.update();
+            }
+        </script>
+    </body>
+</html>
